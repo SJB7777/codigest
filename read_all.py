@@ -27,5 +27,5 @@ def read_all(path: Path | str) -> str:
 
 
 if __name__ == "__main__":
-    project_dir: Path = Path(r"D:\02_Projects\Dev\X-ray_AI\Reflecto")
+    project_dir: Path = Path(r"D:\02_Projects\Dev\X-ray_AI\Reflecto\runs\exp02_one_layer")
     read_all(Path(project_dir))
