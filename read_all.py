@@ -27,5 +27,5 @@ def read_all(path: Path | str) -> None:
 
 
 if __name__ == "__main__":
-    project_dir: Path = Path(r"D:\Dev\Reflecto\runs\exp02_one_layer")
+    project_dir: Path = Path(r"D:\Dev\Reflecto\runs\exp04_pinn_one")
     read_all(Path(project_dir))
