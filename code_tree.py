@@ -2,7 +2,8 @@ import os
 from pathlib import Path
 import pathspec
 
-def load_gitignore_patterns(root_dir="."):
+
+def load_gitignore_patterns(root_dir: Path | str="."):
     """
     .gitignore 파일을 읽어 pathspec 객체로 반환
     """
@@ -35,11 +36,12 @@ def should_ignore(path, spec, root_dir):
         if path.is_dir():
             relative_path += '/'
         return spec.match_file(relative_path)
-    except:
+    except Exception as e:
+        print(f"{type(e)}: {e}")
         return False
 
 def print_project_tree(
-    root_dir=".",
+    root_dir: Path | str=".",
     ignore_dirs=None,  # 기본값 None으로 변경
     ignore_files=None,
     max_depth=None,
@@ -73,8 +75,9 @@ def print_project_tree(
     
     # 디렉토리와 파일 목록 가져오기
     try:
-        items = sorted([p for p in root_path.iterdir() 
-                       if p.is_dir() or p.is_file()])
+        items = sorted(
+            [p for p in root_path.iterdir() if p.is_dir() or p.is_file()]
+            )
     except PermissionError:
         return
     
@@ -121,10 +124,10 @@ def print_project_tree(
                 spec
             )
 
-# ✅ 사용 예시:
+# 사용 예시:
 if __name__ == "__main__":
     # .gitignore 자동 적용
     # print_project_tree()
     # 특정 디렉토리 추가로 무시
-    project_root: Path = Path(r"D:\02_Projects\Dev\X-ray_AI\Reflecto")
+    project_root: Path = Path(r"D:\Dev\Reflecto")
     print_project_tree(project_root, ignore_dirs={".git", ".ruff_cache"})

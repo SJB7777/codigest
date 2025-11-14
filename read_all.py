@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-def read_all(path: Path | str) -> str:
+def read_all(path: Path | str) -> None:
     """
     Reads the entire content of a python project directory file.
     """
@@ -22,10 +22,10 @@ def read_all(path: Path | str) -> str:
                 content = f.read()
                 results.append(content)
 
-    with Path('.\\text.txt').open('w', encoding='utf-8') as f:
+    with Path('.\\code.txt').open('w', encoding='utf-8') as f:
         f.write('\n'.join(results))
 
 
 if __name__ == "__main__":
-    project_dir: Path = Path(r"D:\02_Projects\Dev\X-ray_AI\Reflecto")
+    project_dir: Path = Path(r"D:\Dev\Reflecto\runs\exp02_one_layer")
     read_all(Path(project_dir))
