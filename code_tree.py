@@ -129,5 +129,5 @@ if __name__ == "__main__":
     # .gitignore 자동 적용
     # print_project_tree()
     # 특정 디렉토리 추가로 무시
-    project_root: Path = Path(r"D:\Dev\Reflecto")
+    project_root: Path = Path(r"D:\02_Projects\Dev\X-ray_AI\Reflecto\runs\exp02_one_layer")
     print_project_tree(project_root, ignore_dirs={".git", ".ruff_cache"})

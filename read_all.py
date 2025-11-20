@@ -14,7 +14,7 @@ def read_all(path: Path | str) -> None:
         if '__pycache__' in dirs:
             dirs.remove('__pycache__')
         dirs[:] = [d for d in dirs if not d.startswith('.')]
-        pyfiles = [f for f in files if f.endswith('.py')]
+        pyfiles = [f for f in files if f.endswith('.py') or f.endswith('.css')]
         for file in pyfiles:
             file_path = Path(root) / file
             results.append(f"'''{file_path}'''")
@@ -27,5 +27,5 @@ def read_all(path: Path | str) -> None:
 
 
 if __name__ == "__main__":
-    project_dir: Path = Path(r"D:\Dev\Reflecto\runs\exp04_pinn_one")
+    project_dir: Path = Path(r"D:\02_Projects\Dev\Web\xrr_ai_fitting")
     read_all(Path(project_dir))
