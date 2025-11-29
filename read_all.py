@@ -27,5 +27,5 @@ def read_all(path: Path | str) -> None:
 
 
 if __name__ == "__main__":
-    project_dir: Path = Path(r"D:\02_Projects\Dev\Web\xrr_ai_fitting")
+    project_dir: Path = Path(r"D:\Dev\CordaX")
     read_all(Path(project_dir))
