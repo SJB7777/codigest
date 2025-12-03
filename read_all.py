@@ -105,6 +105,7 @@ def read_all(source_path: Path | str, output_filename: str = "project_context.tx
     print("Done. formatted for LLM context.")
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     # Update this path
     project_dir = Path(r"D:\02_Projects\Dev\Web\reflX-monorepo\invix-ai")
     
@@ -112,3 +113,7 @@ if __name__ == "__main__":
         read_all(project_dir)
     except Exception as e:
         print(f"Execution failed: {e}", file=sys.stderr)
+=======
+    project_dir: Path = Path(r"D:\Dev\CordaX")
+    read_all(Path(project_dir))
+>>>>>>> b9ebcc1b1eb501c33e93d075a662c23533521a76
