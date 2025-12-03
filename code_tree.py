@@ -1,133 +1,137 @@
-import os
 from pathlib import Path
-import pathspec
+from typing import Set, Optional, List
 
+# Check for pathspec
+try:
+    import pathspec
+except ImportError:
+    # Fallback if pathspec is missing (optional, but safer for LLM agents)
+    pathspec = None
 
-def load_gitignore_patterns(root_dir: Path | str="."):
-    """
-    .gitignore 파일을 읽어 pathspec 객체로 반환
-    """
-    gitignore_path = Path(root_dir) / ".gitignore"
-    if not gitignore_path.exists():
-        return None
-    
-    with open(gitignore_path, 'r', encoding='utf-8') as f:
-        patterns = f.read().splitlines()
-    
-    # 빈 줄과 주석 제거
-    patterns = [p.strip() for p in patterns if p.strip() and not p.startswith('#')]
-    
-    # gitwildmatch 포맷으로 spec 생성
-    return pathspec.PathSpec.from_lines('gitwildmatch', patterns)
+# Default Ignore Lists (Optimized for React/Python)
+DEFAULT_IGNORE_DIRS = {
+    # Node.js / React
+    "node_modules", ".next", "build", "dist", "coverage", ".git", ".yarn",
+    # Python
+    "__pycache__", ".venv", "venv", "env", ".pytest_cache", ".mypy_cache", 
+    # IDE / Misc
+    ".idea", ".vscode", ".DS_Store"
+}
 
-def should_ignore(path, spec, root_dir):
-    """
-    경로가 .gitignore 규칙에 의해 무시되어야 하는지 확인
-    """
-    if spec is None:
+DEFAULT_IGNORE_FILES = {
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock",
+    ".DS_Store", "Thumbs.db", "*.pyc"
+}
+
+class LLMContextTreeGenerator:
+    def __init__(
+        self, 
+        root_dir: Path | str, 
+        use_gitignore: bool = True,
+        extra_ignore_dirs: Optional[Set[str]] = None,
+        extra_ignore_files: Optional[Set[str]] = None,
+        max_depth: Optional[int] = None
+    ):
+        self.root_path = Path(root_dir).resolve()
+        self.use_gitignore = use_gitignore
+        self.max_depth = max_depth
+        
+        self.ignore_dirs = DEFAULT_IGNORE_DIRS.copy()
+        if extra_ignore_dirs:
+            self.ignore_dirs.update(extra_ignore_dirs)
+            
+        self.ignore_files = DEFAULT_IGNORE_FILES.copy()
+        if extra_ignore_files:
+            self.ignore_files.update(extra_ignore_files)
+
+        self.gitignore_spec = self._load_gitignore() if use_gitignore and pathspec else None
+
+    def _load_gitignore(self) -> Optional['pathspec.PathSpec']:
+        gitignore_path = self.root_path / ".gitignore"
+        if not gitignore_path.exists():
+            return None
+        try:
+            with gitignore_path.open('r', encoding='utf-8') as f:
+                patterns = f.read().splitlines()
+            return pathspec.PathSpec.from_lines('gitwildmatch', patterns)
+        except Exception:
+            return None
+
+    def _should_ignore(self, path: Path) -> bool:
+        # Fast name check first
+        if path.is_dir() and path.name in self.ignore_dirs:
+            return True
+        if path.is_file() and path.name in self.ignore_files:
+            return True
+
+        # Gitignore check
+        if self.gitignore_spec:
+            try:
+                # Get relative path for gitignore matching
+                rel_path = path.relative_to(self.root_path).as_posix()
+                if path.is_dir():
+                    rel_path += "/"
+                if self.gitignore_spec.match_file(rel_path):
+                    return True
+            except ValueError:
+                pass
         return False
-    
-    # 루트 디렉토리 기준 상대 경로로 변환
-    try:
-        relative_path = os.path.relpath(path, root_dir)
-        if relative_path == '.':
-            return False
-        # 디렉토리는 뒤에 '/'를 붙여서 gitignore 규칙과 일치시킴
-        if path.is_dir():
-            relative_path += '/'
-        return spec.match_file(relative_path)
-    except Exception as e:
-        print(f"{type(e)}: {e}")
-        return False
 
-def print_project_tree(
-    root_dir: Path | str=".",
-    ignore_dirs=None,  # 기본값 None으로 변경
-    ignore_files=None,
-    max_depth=None,
-    use_gitignore=True,  # .gitignore 사용 여부
-    indent="",
-    is_last=True,
-    depth=0,
-    spec=None  # gitignore spec
-):
-    """
-    파이썬 프로젝트 구조를 트리 형태로 출력 (.gitignore 지원)
-    """
-    if ignore_dirs is None:
-        ignore_dirs = set()
-    if ignore_files is None:
-        ignore_files = set()
-    
-    root_path = Path(root_dir)
-    
-    # 최초 호출시 .gitignore 로드
-    if depth == 0 and use_gitignore:
-        spec = load_gitignore_patterns(root_dir)
-    
-    # 최초 호출일 때만 제목 출력
-    if depth == 0:
-        print(f"{root_path.absolute().name}/")
-    
-    # 깊이 제한 체크
-    if max_depth is not None and depth >= max_depth:
-        return
-    
-    # 디렉토리와 파일 목록 가져오기
-    try:
-        items = sorted(
-            [p for p in root_path.iterdir() if p.is_dir() or p.is_file()]
-            )
-    except PermissionError:
-        return
-    
-    # 필터링
-    filtered_items = []
-    for p in items:
-        # 하드코딩된 무시 목록 확인
-        if p.is_dir() and p.name in ignore_dirs:
-            continue
-        if p.is_file() and p.name in ignore_files:
-            continue
-        
-        # .gitignore 규칙 확인
-        if use_gitignore and spec and should_ignore(p, spec, root_path.absolute()):
-            continue
-        
-        filtered_items.append(p)
-    
-    for i, path in enumerate(filtered_items):
-        # 마지막 항목인지 체크
-        is_last_item = (i == len(filtered_items) - 1)
-        
-        # 브랜치 기호 설정
-        branch = "└── " if is_last_item else "├── "
-        
-        # 들여쓰기 설정
-        current_indent = indent + ("    " if is_last else "│   ")
-        
-        # 출력
-        print(f"{current_indent}{branch}{path.name}{'/' if path.is_dir() else ''}")
-        
-        # 재귀 호출 (디렉토리일 경우)
-        if path.is_dir():
-            next_indent = indent + ("    " if is_last_item else "│   ")
-            print_project_tree(
-                path,
-                ignore_dirs,
-                ignore_files,
-                max_depth,
-                use_gitignore,
-                next_indent,
-                is_last_item,
-                depth + 1,
-                spec
-            )
+    def generate_text_structure(self, current_path: Optional[Path] = None, depth: int = 0) -> List[str]:
+        """
+        Generates a plain text list of paths suitable for LLM system prompts.
+        Format:
+        root/
+          subdir/
+            file.txt
+        """
+        if current_path is None:
+            current_path = self.root_path
+            # Start with root name
+            lines = [f"{current_path.name}/"]
+        else:
+            lines = []
 
-# 사용 예시:
+        if self.max_depth is not None and depth >= self.max_depth:
+            return lines
+
+        try:
+            # Sort: Directories first, then files
+            items = sorted(list(current_path.iterdir()), key=lambda x: (not x.is_dir(), x.name.lower()))
+        except PermissionError:
+            return lines
+
+        filtered_items = [p for p in items if not self._should_ignore(p)]
+
+        for item in filtered_items:
+            indent = "  " * (depth + 1)
+            if item.is_dir():
+                lines.append(f"{indent}{item.name}/")
+                lines.extend(self.generate_text_structure(item, depth + 1))
+            else:
+                lines.append(f"{indent}{item.name}")
+        
+        return lines
+
+def get_project_structure(path: Path | str, max_depth: int = 10, ignore_dirs: Set[str] = None) -> str:
+    """
+    Returns a string representation of the project structure.
+    """
+    generator = LLMContextTreeGenerator(
+        root_dir=path,
+        max_depth=max_depth,
+        extra_ignore_dirs=ignore_dirs
+    )
+    # Join lines with newlines
+    structure_lines = generator.generate_text_structure()
+    return "\n".join(structure_lines)
+
 if __name__ == "__main__":
-    # .gitignore 자동 적용
-    # print_project_tree()
-    # 특정 디렉토리 추가로 무시
-    project_root: Path = Path(r"D:\02_Projects\Dev\X-ray_AI\Reflecto\runs\exp02_one_layer")
-    print_project_tree(project_root, ignore_dirs={".git", ".ruff_cache"})
+    # Example usage
+    project_path = Path(r"D:\02_Projects\Dev\Web\reflX-monorepo\apps")
+    
+    # Generate the strict text structure
+    structure = get_project_structure(project_path, max_depth=5, ignore_dirs={"tests", "docs", "public"})
+    
+    # Print to stdout (can be piped to a file or clipboard)
+    print(structure)
