@@ -10,7 +10,9 @@
 *.pyc
 __pycache__/
 
-# IDE-specific files (optional, adjust as needed)
+# IDE-specific files
 .idea/
 .vscode/
+
+# others
 *.txt
