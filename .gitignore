@@ -1,0 +1,16 @@
+# uv and Python related files
+.venv/
+.ruff_cache/
+.env
+
+# uv lock file (uncomment the line below if building a library and you want to ignore it)
+# uv.lock
+
+# Byte-code files
+*.pyc
+__pycache__/
+
+# IDE-specific files (optional, adjust as needed)
+.idea/
+.vscode/
+*.txt
