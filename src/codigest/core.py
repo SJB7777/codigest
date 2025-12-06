@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import List
 import pathspec
-from .config import DEFAULT_IGNORE_PATTERNS, TARGET_EXTENSIONS
+from .config import DEFAULT_IGNORE_PATTERNS, TARGET_EXTENSIONS, ARTIFACT_DIR_NAME
 
 class ScanLimitError(Exception):
     pass
@@ -13,6 +13,10 @@ class ProjectScanner:
 
     def _load_gitignore(self) -> pathspec.PathSpec:
         patterns = list(DEFAULT_IGNORE_PATTERNS)
+        # Ensure we always ignore our own artifact folder even if user config is messy
+        if f"{ARTIFACT_DIR_NAME}/" not in patterns:
+            patterns.append(f"{ARTIFACT_DIR_NAME}/")
+
         gitignore = self.root_path / ".gitignore"
         if gitignore.exists():
             try:

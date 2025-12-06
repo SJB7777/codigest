@@ -1,8 +1,12 @@
 """
-Configuration constants for codeinspector.
+Configuration constants for codigest.
 """
 
-# 파일 확장자 필터 (분석 대상)
+ARTIFACT_DIR_NAME = ".codigest"
+SNAPSHOT_FILENAME = "snapshot.txt"
+DIFF_FILENAME = "changes.diff"
+
+# File Extension Filters
 TARGET_EXTENSIONS: set[str] = {
     # Python
     ".py", ".pyi",
@@ -14,9 +18,10 @@ TARGET_EXTENSIONS: set[str] = {
     ".gitignore", ".dockerignore", "Dockerfile"
 }
 
-# 기본적으로 무시할 디렉토리 및 패턴
+# Default Ignore Patterns
 DEFAULT_IGNORE_PATTERNS: list[str] = [
     ".git/",
+    f"{ARTIFACT_DIR_NAME}/",  # Ignore our own output folder
     ".venv/", "venv/", "env/",
     "__pycache__/",
     "node_modules/",

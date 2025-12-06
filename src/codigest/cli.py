@@ -5,16 +5,16 @@ from .actions import DigestActions
 from .interactive import InteractiveShell
 
 def main():
-    parser = argparse.ArgumentParser(description="Codigest: CLI Code Context Generator")
+    parser = argparse.ArgumentParser(description="Codigest: Professional Context Generator")
     parser.add_argument("path", nargs="?", help="Target path (file or dir)")
-    parser.add_argument("-d", "--diff", action="store_true", help="Get git diff only")
+    parser.add_argument("-d", "--diff", action="store_true", help="Capture git diff only")
     
     args = parser.parse_args()
 
+    # Path Resolution Logic
     if args.path:
         target_path = Path(args.path).resolve()
     else:
-
         target_path = Path.cwd()
 
     if target_path.is_file():
@@ -35,19 +35,20 @@ def main():
         
         if args.diff:
             print(f"⚡ Fetching diff for {root.name}...")
-            content = actions.diff()
+            content, saved_path = actions.diff_and_save()
+            label = "Diff"
         else:
             print(f"⚡ Scanning {root.name}...")
-            content = actions.scan(initial_targets)
+            content, saved_path = actions.scan_and_save(initial_targets)
+            label = "Snapshot"
 
         if content.startswith("❌") or content.startswith("✨"):
             print(content)
         else:
-            actions.save_to_file(content)
-            if actions.copy_to_clipboard(content):
-                print(f"✅ Copied to clipboard ({len(content)} chars)")
-            else:
-                print(content)
+            print(f"\n✅ {label} generated successfully!")
+            print(f"   📂 Location: {saved_path.relative_to(root)}")
+            print(f"   📋 Clipboard: Copied ({len(content)} chars)")
+            
     else:
         shell = InteractiveShell(root)
         shell.start()

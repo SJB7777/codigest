@@ -123,10 +123,8 @@ class InteractiveShell:
         """!로 시작하는 명령어: Windows면 PowerShell, 그 외엔 기본 Shell"""
         try:
             if os.name == 'nt':
-
                 subprocess.run(["powershell", "-Command", command], cwd=self.root_path)
             else:
-                # Mac/Linux는 기본 쉘 사용
                 subprocess.run(command, shell=True, cwd=self.root_path)
         except Exception as e:
             print(f"❌ Execution failed: {e}")
@@ -158,7 +156,8 @@ class InteractiveShell:
         
         if new_path.exists() and new_path.is_dir():
             self.root_path = new_path
-            self.actions.root_path = new_path
+            # Actions 객체도 새 경로로 재생성
+            self.actions = DigestActions(self.root_path) 
             self.config_manager.set_last_project_root(str(new_path))
 
             try:
@@ -169,12 +168,7 @@ class InteractiveShell:
             print(f"The system cannot find the path specified: {target}")
 
     def _do_ls(self, args):
-        """
-        내장 ls/dir 명령어 처리
-        인자(args)가 있으면 그대로 전달합니다.
-        """
         extra_args = " " + " ".join(args) if args else ""
-        
         if os.name == 'nt':
             os.system('dir' + extra_args)
         else:
@@ -189,8 +183,9 @@ class InteractiveShell:
         print("⏳ Scanning...", end="\r")
         target_paths = [ (self.root_path / a).resolve() for a in args ] if args else None
         
-        result = self.actions.scan(target_paths)
-        self._handle_result(result, "Context")
+        # [수정됨] scan -> scan_and_save (반환값: content, path)
+        content, saved_path = self.actions.scan_and_save(target_paths)
+        self._handle_result(content, saved_path, "Snapshot")
 
     def _do_diff(self):
         if not is_git_repo(self.root_path):
@@ -198,21 +193,27 @@ class InteractiveShell:
             return
         
         print("🔍 Checking diff...", end="\r")
-        result = self.actions.diff()
-        
-        if result.startswith("❌") or result.startswith("✨"):
-            print(result)
-        else:
-            self._handle_result(result, "Git Diff")
+        # [수정됨] diff -> diff_and_save (반환값: content, path)
+        content, saved_path = self.actions.diff_and_save()
+        self._handle_result(content, saved_path, "Git Diff")
 
-    def _handle_result(self, content: str, label: str):
+    def _handle_result(self, content: str, saved_path: Path, label: str):
+        """결과 처리 공통 로직 (저장은 이미 완료된 상태)"""
+        # 에러 메시지나 상태 메시지(✨, ❌)인 경우 경로가 비어있음
+        if str(saved_path) == ".": 
+            print(content)
+            return
+
+        # 성공 시 출력
+        if content.startswith("❌"):
+            print(content)
+            return
+
         try:
-            saved_path = self.actions.save_to_file(content)
-            print(f"💾 Saved: {saved_path.name}   ", end="")
-        except Exception as e:
-            print(f"⚠️ Save failed: {e}   ", end="")
+            rel_path = saved_path.relative_to(self.root_path)
+        except ValueError:
+            rel_path = saved_path
 
-        if self.actions.copy_to_clipboard(content):
-            print(f"📋 Copied {label} to clipboard! ({len(content)} chars)")
-        else:
-            print("⚠️ Clipboard failed.")
+        print(f"✅ {label} saved to: ./{rel_path}    ", end="")
+
+        print(f"\n📋 Copied to clipboard! ({len(content)} chars)")
