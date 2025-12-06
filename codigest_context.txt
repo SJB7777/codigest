@@ -1,0 +1,713 @@
+
+[SYSTEM: CODIGEST - INITIAL CONTEXT]
+You are an expert AI developer. I am providing the full context of a project named "codigest".
+Please digest this structure and code to build your internal mental model.
+
+<project_root>
+codigest
+</project_root>
+
+<project_structure>
+├── .gitignore
+├── .python-version
+├── .ruff_cache
+│   ├── .gitignore
+│   ├── 0.14.8
+│   │   └── 12445044848939849648
+│   └── CACHEDIR.TAG
+├── README.md
+├── pyproject.toml
+├── src
+│   └── codigest
+│       ├── __init__.py
+│       ├── actions.py
+│       ├── cli.py
+│       ├── config.py
+│       ├── config_manager.py
+│       ├── core.py
+│       ├── git_ops.py
+│       ├── interactive.py
+│       └── prompts.py
+└── uv.lock
+</project_structure>
+
+<source_code>
+<file path=".gitignore">
+
+</file>
+
+<file path=".ruff_cache/.gitignore">
+# Automatically created by ruff.
+*
+
+</file>
+
+<file path="pyproject.toml">
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codigest"
+version = "0.1.4"
+description = "Digest your codebase for LLM context with Vibe Coding flow."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pathspec",
+    "platformdirs",
+    "prompt-toolkit",
+    "pyperclip",
+]
+
+[project.scripts]
+codigest = "codigest.cli:main"
+
+[dependency-groups]
+dev = [
+    "ruff",
+]
+
+</file>
+
+<file path="README.md">
+
+</file>
+
+<file path="src/codigest/__init__.py">
+
+</file>
+
+<file path="src/codigest/actions.py">
+import pyperclip
+from pathlib import Path
+from typing import List, Optional
+from .core import ProjectScanner, ScanLimitError
+from .git_ops import get_git_diff, is_git_repo
+from .prompts import INITIAL_PROMPT_TEMPLATE, UPDATE_PROMPT_TEMPLATE
+
+class DigestActions:
+    def __init__(self, root_path: Path):
+        self.root_path = root_path.resolve()
+
+    def scan(self, target_paths: Optional[List[Path]] = None) -> str:
+        """전체 스캔 (안전 장치 포함)"""
+        try:
+            scanner = ProjectScanner(self.root_path)
+            
+            # 1. 트리 생성
+            tree_str = scanner.generate_tree()
+            
+            # 2. 파일 스캔 (여기서 제한 걸림)
+            file_contents = []
+            
+            if target_paths:
+                # 특정 경로만 스캔할 때는 전체 스캔 대신 효율적으로 처리하거나,
+                # 전체 스캔 후 필터링 (구현 편의상 필터링 방식 유지하되, 전체 스캔 시 안전장치 작동)
+                scanner.scan()
+                paths_to_scan = []
+                # ... (필터링 로직) ...
+                # (이전 코드와 동일, 생략)
+                # 여기서는 간단히 전체 scan() 호출만 보여드림
+                pass 
+                # 실제 구현부:
+                scan_result = scanner.scan() # 여기서 예외 발생 가능
+                paths_to_scan = []
+                for p in target_paths:
+                     if p.is_dir():
+                         paths_to_scan.extend([f for f in scan_result if str(f).startswith(str(p))])
+                     else:
+                         paths_to_scan.append(p)
+                paths_to_scan = sorted(list(set(paths_to_scan)))
+
+            else:
+                # 전체 스캔
+                paths_to_scan = scanner.scan()
+
+            # 3. 내용 읽기
+            for file_path in paths_to_scan:
+                try:
+                    rel_path = file_path.relative_to(self.root_path).as_posix()
+                except ValueError:
+                    rel_path = file_path.name
+                
+                try:
+                    text = file_path.read_text(encoding="utf-8")
+                    file_contents.append(f'<file path="{rel_path}">\n{text}\n</file>')
+                except Exception: pass
+
+            return INITIAL_PROMPT_TEMPLATE.format(
+                root_name=self.root_path.name,
+                tree_structure=tree_str,
+                content="\n\n".join(file_contents)
+            )
+
+        except ScanLimitError as e:
+            return f"❌ Safety Stop: {e}\n   To fix: Add a .gitignore file or scan specific folders."
+        except Exception as e:
+            return f"❌ Unexpected Error: {e}"
+
+    def diff(self) -> str:
+        """Git Diff 추출"""
+        if not is_git_repo(self.root_path):
+            return "❌ Error: Not a git repository."
+        
+        diff = get_git_diff(self.root_path)
+        if not diff.strip():
+            return "✨ Clean working tree (No changes)."
+            
+        return UPDATE_PROMPT_TEMPLATE.format(diff_content=diff)
+
+    def copy_to_clipboard(self, content: str) -> bool:
+        try:
+            pyperclip.copy(content)
+            return True
+        except Exception:
+            return False
+
+    def save_to_file(self, content: str, filename: str = "codigest_context.txt") -> Path:
+        out_path = self.root_path / filename
+        out_path.write_text(content, encoding="utf-8")
+        return out_path
+</file>
+
+<file path="src/codigest/cli.py">
+import argparse
+import sys
+from pathlib import Path
+from .actions import DigestActions
+from .interactive import InteractiveShell
+
+def main():
+    parser = argparse.ArgumentParser(description="Codigest: CLI Code Context Generator")
+    parser.add_argument("path", nargs="?", help="Target path (file or dir)")
+    parser.add_argument("-d", "--diff", action="store_true", help="Get git diff only")
+    
+    args = parser.parse_args()
+
+    if args.path:
+        target_path = Path(args.path).resolve()
+    else:
+
+        target_path = Path.cwd()
+
+    if target_path.is_file():
+        root = target_path.parent
+        initial_targets = [target_path]
+    else:
+        root = target_path
+        initial_targets = None
+
+    if not root.exists():
+        print(f"❌ Path not found: {root}")
+        sys.exit(1)
+
+    is_headless = args.diff or (args.path is not None)
+
+    if is_headless:
+        actions = DigestActions(root)
+        
+        if args.diff:
+            print(f"⚡ Fetching diff for {root.name}...")
+            content = actions.diff()
+        else:
+            print(f"⚡ Scanning {root.name}...")
+            content = actions.scan(initial_targets)
+
+        if content.startswith("❌") or content.startswith("✨"):
+            print(content)
+        else:
+            actions.save_to_file(content)
+            if actions.copy_to_clipboard(content):
+                print(f"✅ Copied to clipboard ({len(content)} chars)")
+            else:
+                print(content)
+    else:
+        shell = InteractiveShell(root)
+        shell.start()
+
+if __name__ == "__main__":
+    main()
+</file>
+
+<file path="src/codigest/config.py">
+"""
+Configuration constants for codeinspector.
+"""
+
+# 파일 확장자 필터 (분석 대상)
+TARGET_EXTENSIONS: set[str] = {
+    # Python
+    ".py", ".pyi",
+    # Web / JS
+    ".ts", ".tsx", ".js", ".jsx", ".json",
+    ".css", ".scss", ".html",
+    # Config / Docs
+    ".md", ".yaml", ".yml", ".toml", ".xml",
+    ".gitignore", ".dockerignore", "Dockerfile"
+}
+
+# 기본적으로 무시할 디렉토리 및 패턴
+DEFAULT_IGNORE_PATTERNS: list[str] = [
+    ".git/",
+    ".venv/", "venv/", "env/",
+    "__pycache__/",
+    "node_modules/",
+    "dist/", "build/", "wheels/",
+    ".idea/", ".vscode/", ".mypy_cache/",
+    "*.pyc", "*.DS_Store", "*.egg-info"
+]
+</file>
+
+<file path="src/codigest/config_manager.py">
+import json
+from pathlib import Path
+from typing import Optional
+from platformdirs import user_config_dir
+
+APP_NAME = "codigest"
+
+class ConfigManager:
+    def __init__(self):
+        self.config_dir = Path(user_config_dir(APP_NAME))
+        self.config_file = self.config_dir / "config.json"
+        
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.config = self._load_config()
+
+    def _load_config(self) -> dict:
+        if not self.config_file.exists():
+            return {}
+        try:
+            return json.loads(self.config_file.read_text(encoding='utf-8'))
+        except Exception:
+            return {}
+
+    def save_config(self):
+        try:
+            self.config_file.write_text(json.dumps(self.config, indent=2), encoding='utf-8')
+        except Exception as e:
+            print(f"⚠️ Failed to save config: {e}")
+
+    def get_last_project_root(self) -> Optional[str]:
+        return self.config.get("last_project_root")
+
+    def set_last_project_root(self, path: str):
+        self.config["last_project_root"] = str(path)
+        self.save_config()
+</file>
+
+<file path="src/codigest/core.py">
+from pathlib import Path
+from typing import List
+import pathspec
+from .config import DEFAULT_IGNORE_PATTERNS, TARGET_EXTENSIONS
+
+class ScanLimitError(Exception):
+    pass
+
+class ProjectScanner:
+    def __init__(self, root_path: Path):
+        self.root_path = root_path
+        self.gitignore_spec = self._load_gitignore()
+
+    def _load_gitignore(self) -> pathspec.PathSpec:
+        patterns = list(DEFAULT_IGNORE_PATTERNS)
+        gitignore = self.root_path / ".gitignore"
+        if gitignore.exists():
+            try:
+                with open(gitignore, "r", encoding="utf-8") as f:
+                    patterns.extend(f.read().splitlines())
+            except Exception: pass
+        return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
+
+    def is_ignored(self, path: Path) -> bool:
+        try:
+            rel = path.relative_to(self.root_path).as_posix()
+        except ValueError: return False
+        if path.is_dir(): rel += "/"
+        return self.gitignore_spec.match_file(rel)
+
+    # [MODIFIED] max_files 파라미터 추가 (기본값 10,000개)
+    def scan(self, max_files: int = 10000) -> List[Path]:
+        valid_files = []
+        dirs_stack = [self.root_path]
+        
+        while dirs_stack:
+            # 안전 장치: 너무 오래 걸리거나 파일이 많으면 중단
+            if len(valid_files) > max_files:
+                raise ScanLimitError(f"Too many files (> {max_files}). Missing .gitignore?")
+
+            try:
+                current = dirs_stack.pop()
+                items = sorted(current.iterdir(), key=lambda x: x.name)
+            except PermissionError: continue
+
+            for item in items:
+                if self.is_ignored(item): continue
+                
+                if item.is_dir():
+                    dirs_stack.append(item)
+                elif item.is_file():
+                    if item.suffix.lower() in TARGET_EXTENSIONS or item.name in {".gitignore", "Dockerfile", "pyproject.toml"}:
+                        valid_files.append(item)
+        
+        return sorted(valid_files)
+
+    def generate_tree(self) -> str:
+        # 트리 생성은 시각적 요소이므로 제한을 두거나, 깊이 제한을 두는 것이 좋음
+        # 여기서는 단순화를 위해 기존 유지하되, 너무 깊은 깊이는 자르는 로직 추가 가능
+        lines = []
+        def _walk(path, prefix="", depth=0):
+            if depth > 10: return # [NEW] 너무 깊은 트리는 생략
+            try: items = sorted(path.iterdir(), key=lambda x: x.name)
+            except PermissionError: return
+            
+            filtered = [i for i in items if not self.is_ignored(i)]
+            count = len(filtered)
+            # 너무 많은 파일이 한 폴더에 있으면 생략 표시
+            if count > 50:
+                filtered = filtered[:50]
+                lines.append(f"{prefix}└── ... ({count-50} more files)")
+            
+            for i, item in enumerate(filtered):
+                is_last = (i == count - 1)
+                connector = "└── " if is_last else "├── "
+                lines.append(f"{prefix}{connector}{item.name}")
+                if item.is_dir():
+                    _walk(item, prefix + ("    " if is_last else "│   "), depth + 1)
+        
+        _walk(self.root_path)
+        return "\n".join(lines)
+</file>
+
+<file path="src/codigest/git_ops.py">
+import subprocess
+from pathlib import Path
+from .config import TARGET_EXTENSIONS
+
+def is_git_repo(root_path: Path) -> bool:
+    return (root_path / ".git").exists()
+
+def get_git_diff(root_path: Path) -> str:
+    """
+    소스 코드 파일에 대해서만 Git Diff 및 Untracked 파일 내용을 가져옵니다.
+    """
+    try:
+        # 1. 변경된 파일 (Modified/Staged)
+        diff_output = subprocess.check_output(
+            ["git", "diff", "HEAD"], 
+            cwd=root_path, 
+            text=True, 
+            encoding='utf-8',
+            stderr=subprocess.DEVNULL 
+        )
+        
+        # 2. 새로 생성된 파일 (Untracked)
+        untracked_files = subprocess.check_output(
+            ["git", "ls-files", "--others", "--exclude-standard"],
+            cwd=root_path,
+            text=True,
+            encoding='utf-8',
+            stderr=subprocess.DEVNULL
+        ).splitlines()
+        
+        full_output = diff_output
+        
+        if untracked_files:
+            new_files_content = ""
+            has_new_files = False
+            
+            for f in untracked_files:
+                file_path = root_path / f
+                
+                # 파일이 아니거나 허용된 확장자가 아니면 스킵
+                if not file_path.is_file():
+                    continue
+                
+                is_valid_ext = file_path.suffix.lower() in TARGET_EXTENSIONS
+                is_config_file = file_path.name in {".gitignore", "Dockerfile", "Makefile", "pyproject.toml"}
+                
+                if not (is_valid_ext or is_config_file):
+                    continue
+
+                try:
+                    content = file_path.read_text(encoding='utf-8')
+                    new_files_content += f"diff --git a/{f} b/{f}\n"
+                    new_files_content += "new file mode 100644\n"
+                    new_files_content += f"--- /dev/null\n+++ b/{f}\n@@ -0,0 +1,{len(content.splitlines())} @@\n{content}\n"
+                    has_new_files = True
+                except (UnicodeDecodeError, Exception):
+                    pass # 바이너리나 에러 발생 시 무시
+
+            if has_new_files:
+                full_output += "\n# Untracked (New) Source Files:\n" + new_files_content
+
+        return full_output
+    except subprocess.CalledProcessError:
+        return "Error: Failed to run git diff."
+</file>
+
+<file path="src/codigest/interactive.py">
+import sys
+import os
+import shlex
+import subprocess
+from pathlib import Path
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.completion import NestedCompleter, PathCompleter
+from prompt_toolkit.styles import Style
+
+# (사용자 정의 모듈은 그대로 유지)
+from .actions import DigestActions
+from .config_manager import ConfigManager
+from .git_ops import is_git_repo
+
+class InteractiveShell:
+    def __init__(self, initial_path: Path):
+        self.config_manager = ConfigManager()
+        self.root_path = initial_path.resolve()
+
+        # 시작 시 프로세스 경로 동기화
+        try:
+            os.chdir(self.root_path)
+        except OSError:
+            pass
+
+        self.actions = DigestActions(self.root_path)
+        self.config_manager.set_last_project_root(str(self.root_path))
+
+        self.history = InMemoryHistory()
+
+        self.completer = NestedCompleter.from_nested_dict({
+            'cd': PathCompleter(only_directories=True),
+            'ls': None,
+            'dir': None,     # [추가] 자동완성 목록에 dir 추가
+            'history': None,
+            'pwd': None,
+            'scan': PathCompleter(),
+            'diff': None,
+            'exit': None,
+            'quit': None,
+            'help': None,
+            'clear': None,
+        })
+        
+        self.session = PromptSession(
+            completer=self.completer,
+            history=self.history
+        )
+
+    def start(self):
+        print("\n🚀 Codigest Shell")
+        print(f"📂 Project: {self.root_path}")
+        print("💡 Type 'help' for commands. Use '!' for system commands (PowerShell).\n")
+
+        while True:
+            try:
+                style = Style.from_dict({
+                    'path': 'ansicyan bold',
+                    'arrow': '#ff0066 bold',
+                })
+
+                message = [
+                    ('class:path', f"({self.root_path.name}) "),
+                    ('class:arrow', "> "),
+                ]
+                
+                cmd_input = self.session.prompt(message, style=style).strip()
+                
+                if not cmd_input:
+                    continue
+
+                # '!'로 시작하면 시스템 명령어 실행
+                if cmd_input.startswith("!"):
+                    self._run_system_command(cmd_input[1:])
+                    continue
+
+                parts = shlex.split(cmd_input)
+                if not parts:
+                    continue
+                
+                cmd = parts[0].lower()
+                args = parts[1:]
+
+                match cmd:
+                    case 'exit' | 'quit' | 'q':
+                        print("👋 Bye!")
+                        break
+                    
+                    case 'clear' | 'cls':
+                        print("\033[H\033[J", end="")
+
+                    case 'help' | 'h' | '?':
+                        self._show_help()
+
+                    case 'pwd':
+                        print(f"{self.root_path}")
+                    
+                    # ls와 dir을 동일하게 처리
+                    case 'ls' | 'dir':
+                        self._do_ls(args)
+
+                    case 'history':
+                        self._do_history()
+
+                    case 'cd':
+                        self._do_cd(args)
+
+                    case 'scan':
+                        self._do_scan(args)
+
+                    case 'diff':
+                        self._do_diff()
+
+                    case _:
+                        print(f"❓ Unknown command: {cmd}")
+
+            except KeyboardInterrupt:
+                continue
+            except EOFError:
+                print("\n👋 Bye!")
+                sys.exit(0)
+            except Exception as e:
+                print(f"❌ Error: {e}")
+
+    def _run_system_command(self, command: str):
+        """!로 시작하는 명령어: Windows면 PowerShell, 그 외엔 기본 Shell"""
+        try:
+            if os.name == 'nt':
+                # [수정됨] Windows일 경우 PowerShell 호출
+                # 리스트 형태로 넘기면 쉘 인젝션 방지에 좋고 실행이 명확함
+                subprocess.run(["powershell", "-Command", command], cwd=self.root_path)
+            else:
+                # Mac/Linux는 기본 쉘 사용
+                subprocess.run(command, shell=True, cwd=self.root_path)
+        except Exception as e:
+            print(f"❌ Execution failed: {e}")
+
+    def _show_help(self):
+        print(" Internal Commands:")
+        print("  ls / dir        : List directory contents")
+        print("  cd <path>       : Change directory")
+        print("  pwd             : Print working directory")
+        print("  history         : Show command history")
+        print("  scan [path]     : Scan project")
+        print("  diff            : Copy git diff")
+        print("  exit            : Quit")
+        print("\n System Commands:")
+        print("  !cmd            : Run command in PowerShell (Windows) or Bash (Mac/Linux)")
+
+    def _do_cd(self, args):
+        if not args:
+            print(f"{self.root_path}")
+            return
+        
+        target = args[0]
+        try:
+            expanded_path = Path(target).expanduser()
+            new_path = (self.root_path / expanded_path).resolve()
+        except Exception as e:
+            print(f"❌ Invalid path syntax: {e}")
+            return
+        
+        if new_path.exists() and new_path.is_dir():
+            self.root_path = new_path
+            self.actions.root_path = new_path
+            self.config_manager.set_last_project_root(str(new_path))
+            
+            # 프로세스 CWD 변경
+            try:
+                os.chdir(self.root_path)
+            except Exception as e:
+                print(f"⚠️ Failed to change system CWD: {e}")
+        else:
+            print(f"The system cannot find the path specified: {target}")
+
+    def _do_ls(self, args):
+        """
+        내장 ls/dir 명령어 처리
+        인자(args)가 있으면 그대로 전달합니다.
+        """
+        # 인자 리스트를 문자열로 복원
+        # 예: ['-al'] -> ' -al'
+        extra_args = " " + " ".join(args) if args else ""
+        
+        if os.name == 'nt':
+            # Windows에서는 dir 명령어 실행
+            # 주의: 사용자가 'ls -l'을 쳤더라도 여기서는 'dir -l'로 실행되므로
+            # Windows dir 명령어 옵션(/w, /p 등)을 써야 정확히 동작합니다.
+            os.system('dir' + extra_args)
+        else:
+            # Mac/Linux
+            os.system('ls --color=auto' + extra_args)
+
+    def _do_history(self):
+        history_list = self.history.get_strings()
+        for i, cmd in enumerate(history_list):
+            print(f"{i + 1}: {cmd}")
+
+    def _do_scan(self, args):
+        print("⏳ Scanning...", end="\r")
+        target_paths = [ (self.root_path / a).resolve() for a in args ] if args else None
+        
+        result = self.actions.scan(target_paths)
+        self._handle_result(result, "Context")
+
+    def _do_diff(self):
+        if not is_git_repo(self.root_path):
+            print("❌ Not a git repo.")
+            return
+        
+        print("🔍 Checking diff...", end="\r")
+        result = self.actions.diff()
+        
+        if result.startswith("❌") or result.startswith("✨"):
+            print(result)
+        else:
+            self._handle_result(result, "Git Diff")
+
+    def _handle_result(self, content: str, label: str):
+        try:
+            saved_path = self.actions.save_to_file(content)
+            print(f"💾 Saved: {saved_path.name}   ", end="")
+        except Exception as e:
+            print(f"⚠️ Save failed: {e}   ", end="")
+
+        if self.actions.copy_to_clipboard(content):
+            print(f"📋 Copied {label} to clipboard! ({len(content)} chars)")
+        else:
+            print("⚠️ Clipboard failed.")
+</file>
+
+<file path="src/codigest/prompts.py">
+INITIAL_PROMPT_TEMPLATE = """
+[SYSTEM: CODIGEST - INITIAL CONTEXT]
+You are an expert AI developer. I am providing the full context of a project named "{root_name}".
+Please digest this structure and code to build your internal mental model.
+
+<project_root>
+{root_name}
+</project_root>
+
+<project_structure>
+{tree_structure}
+</project_structure>
+
+<source_code>
+{content}
+</source_code>
+"""
+
+UPDATE_PROMPT_TEMPLATE = """
+[SYSTEM: CODIGEST - INCREMENTAL UPDATE]
+Here are the latest changes (git diff) since our last sync.
+Please update your memory of the codebase accordingly.
+
+<git_diff>
+{diff_content}
+</git_diff>
+"""
+</file>
+</source_code>

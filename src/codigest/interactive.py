@@ -1,6 +1,13 @@
 import sys
+import os
 import shlex
+import subprocess
 from pathlib import Path
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.completion import NestedCompleter, PathCompleter
+from prompt_toolkit.styles import Style
+
 from .actions import DigestActions
 from .config_manager import ConfigManager
 from .git_ops import is_git_repo
@@ -8,25 +15,67 @@ from .git_ops import is_git_repo
 class InteractiveShell:
     def __init__(self, initial_path: Path):
         self.config_manager = ConfigManager()
-        self.root_path = initial_path
+        self.root_path = initial_path.resolve()
+
+        try:
+            os.chdir(self.root_path)
+        except OSError:
+            pass
+
         self.actions = DigestActions(self.root_path)
         self.config_manager.set_last_project_root(str(self.root_path))
+
+        self.history = InMemoryHistory()
+
+        self.completer = NestedCompleter.from_nested_dict({
+            'cd': PathCompleter(only_directories=True),
+            'ls': None,
+            'dir': None,
+            'history': None,
+            'pwd': None,
+            'scan': PathCompleter(),
+            'diff': None,
+            'exit': None,
+            'quit': None,
+            'help': None,
+            'clear': None,
+        })
+        
+        self.session = PromptSession(
+            completer=self.completer,
+            history=self.history
+        )
 
     def start(self):
         print("\n🚀 Codigest Shell")
         print(f"📂 Project: {self.root_path}")
-        print("💡 Type 'help' for commands.\n")
+        print("💡 Type 'help' for commands. Use '!' for system commands (PowerShell).\n")
 
         while True:
             try:
-                cmd_input = input(f"({self.root_path.name}) > ").strip()
+                style = Style.from_dict({
+                    'path': 'ansicyan bold',
+                    'arrow': '#ff0066 bold',
+                })
+
+                message = [
+                    ('class:path', f"({self.root_path.name}) "),
+                    ('class:arrow', "> "),
+                ]
+                
+                cmd_input = self.session.prompt(message, style=style).strip()
+                
                 if not cmd_input:
                     continue
 
-                parts = shlex.split(cmd_input)
-                if not parts: 
+                if cmd_input.startswith("!"):
+                    self._run_system_command(cmd_input[1:])
                     continue
 
+                parts = shlex.split(cmd_input)
+                if not parts:
+                    continue
+                
                 cmd = parts[0].lower()
                 args = parts[1:]
 
@@ -35,11 +84,20 @@ class InteractiveShell:
                         print("👋 Bye!")
                         break
                     
-                    case 'clear' | 'cls':  # 화면 지우기 (보너스)
+                    case 'clear' | 'cls':
                         print("\033[H\033[J", end="")
 
                     case 'help' | 'h' | '?':
                         self._show_help()
+
+                    case 'pwd':
+                        print(f"{self.root_path}")
+
+                    case 'ls' | 'dir':
+                        self._do_ls(args)
+
+                    case 'history':
+                        self._do_history()
 
                     case 'cd':
                         self._do_cd(args)
@@ -54,65 +112,85 @@ class InteractiveShell:
                         print(f"❓ Unknown command: {cmd}")
 
             except KeyboardInterrupt:
-                print("\n\n👋 Bye! (Interrupted)")
+                continue
+            except EOFError:
+                print("\n👋 Bye!")
                 sys.exit(0)
             except Exception as e:
                 print(f"❌ Error: {e}")
 
+    def _run_system_command(self, command: str):
+        """!로 시작하는 명령어: Windows면 PowerShell, 그 외엔 기본 Shell"""
+        try:
+            if os.name == 'nt':
+
+                subprocess.run(["powershell", "-Command", command], cwd=self.root_path)
+            else:
+                # Mac/Linux는 기본 쉘 사용
+                subprocess.run(command, shell=True, cwd=self.root_path)
+        except Exception as e:
+            print(f"❌ Execution failed: {e}")
+
     def _show_help(self):
-        print(" Commands:")
-        print("  scan [path]   : Scan project (or specific file/folder)")
-        print("  diff          : Copy git diff")
-        print("  cd <path>     : Change project root")
-        print("  exit          : Quit")
+        print(" Internal Commands:")
+        print("  ls / dir        : List directory contents")
+        print("  cd <path>       : Change directory")
+        print("  pwd             : Print working directory")
+        print("  history         : Show command history")
+        print("  scan [path]     : Scan project")
+        print("  diff            : Copy git diff")
+        print("  exit            : Quit")
+        print("\n System Commands:")
+        print("  !cmd            : Run command in PowerShell (Windows) or Bash (Mac/Linux)")
 
     def _do_cd(self, args):
         if not args:
-            print(f"📂 Current: {self.root_path}")
+            print(f"{self.root_path}")
             return
-
-        input_path = args[0]
+        
+        target = args[0]
         try:
-            new_path = (self.root_path / input_path).resolve()
+            expanded_path = Path(target).expanduser()
+            new_path = (self.root_path / expanded_path).resolve()
         except Exception as e:
-            print(f"❌ Invalid path: {e}")
+            print(f"❌ Invalid path syntax: {e}")
             return
         
         if new_path.exists() and new_path.is_dir():
             self.root_path = new_path
-            self.actions = DigestActions(new_path)
+            self.actions.root_path = new_path
             self.config_manager.set_last_project_root(str(new_path))
-            print(f"✅ Changed to: {self.root_path}")
+
+            try:
+                os.chdir(self.root_path)
+            except Exception as e:
+                print(f"⚠️ Failed to change system CWD: {e}")
         else:
-            print(f"❌ Invalid directory: {new_path}")
+            print(f"The system cannot find the path specified: {target}")
+
+    def _do_ls(self, args):
+        """
+        내장 ls/dir 명령어 처리
+        인자(args)가 있으면 그대로 전달합니다.
+        """
+        extra_args = " " + " ".join(args) if args else ""
+        
+        if os.name == 'nt':
+            os.system('dir' + extra_args)
+        else:
+            os.system('ls --color=auto' + extra_args)
+
+    def _do_history(self):
+        history_list = self.history.get_strings()
+        for i, cmd in enumerate(history_list):
+            print(f"{i + 1}: {cmd}")
 
     def _do_scan(self, args):
-        # [안전 장치 1] .gitignore 체크
-        gitignore_path = self.root_path / ".gitignore"
-        if not gitignore_path.exists():
-            print("⚠️  [Warning] No .gitignore found in root!")
-            print("   Scanning might include unnecessary files (node_modules, venv, etc).")
-            try:
-                confirm = input("   Continue anyway? [y/N] ").lower()
-            except KeyboardInterrupt:
-                print("\n❌ Cancelled.")
-                return
-                
-            if confirm not in ('y', 'yes'):
-                print("❌ Scan cancelled.")
-                return
-
         print("⏳ Scanning...", end="\r")
         target_paths = [ (self.root_path / a).resolve() for a in args ] if args else None
         
-        # [안전 장치 2] actions.scan 내부의 ScanLimitError 처리
         result = self.actions.scan(target_paths)
-        
-        # 에러 메시지인지 확인 (간단한 체크)
-        if result.startswith("❌ Safety Stop"):
-            print("\n" + result) # 줄바꿈 후 에러 출력
-        else:
-            self._handle_result(result, "Context")
+        self._handle_result(result, "Context")
 
     def _do_diff(self):
         if not is_git_repo(self.root_path):

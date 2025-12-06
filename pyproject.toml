@@ -4,13 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codigest"
-version = "0.1.1"
+version = "0.1.5"
 description = "Digest your codebase for LLM context with Vibe Coding flow."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "pathspec",
     "platformdirs",
+    "prompt-toolkit",
     "pyperclip",
 ]
 
@@ -19,5 +20,5 @@ codigest = "codigest.cli:main"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.14.8",
+    "ruff",
 ]
