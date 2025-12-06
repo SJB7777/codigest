@@ -10,9 +10,6 @@ class InteractiveShell:
         self.config_manager = ConfigManager()
         self.root_path = initial_path
         self.actions = DigestActions(self.root_path)
-        
-        # 시작할 때 현재 경로를 '저장'은 해둡니다. (나중에 다른 용도로 쓰일 수 있으니)
-        # 하지만 시작 시 불러오지는 않습니다.
         self.config_manager.set_last_project_root(str(self.root_path))
 
     def start(self):
@@ -22,33 +19,41 @@ class InteractiveShell:
 
         while True:
             try:
-                # 프롬프트 출력
                 cmd_input = input(f"({self.root_path.name}) > ").strip()
                 if not cmd_input:
                     continue
 
                 parts = shlex.split(cmd_input)
+                if not parts: 
+                    continue
+
                 cmd = parts[0].lower()
                 args = parts[1:]
 
-                if cmd in ('exit', 'quit', 'q'):
-                    print("👋 Bye!")
-                    break
-                elif cmd in ('clear', 'cls'):
-                    print("\033[H\033[J", end="")
-                elif cmd == 'help':
-                    self._show_help()
-                elif cmd == 'cd':
-                    self._do_cd(args)
-                elif cmd == 'scan':
-                    self._do_scan(args)
-                elif cmd == 'diff':
-                    self._do_diff()
-                else:
-                    print(f"❓ Unknown command: {cmd}")
+                match cmd:
+                    case 'exit' | 'quit' | 'q':
+                        print("👋 Bye!")
+                        break
+                    
+                    case 'clear' | 'cls':  # 화면 지우기 (보너스)
+                        print("\033[H\033[J", end="")
+
+                    case 'help' | 'h' | '?':
+                        self._show_help()
+
+                    case 'cd':
+                        self._do_cd(args)
+
+                    case 'scan':
+                        self._do_scan(args)
+
+                    case 'diff':
+                        self._do_diff()
+
+                    case _:
+                        print(f"❓ Unknown command: {cmd}")
 
             except KeyboardInterrupt:
-                # Ctrl+C 입력 시 즉시 종료
                 print("\n\n👋 Bye! (Interrupted)")
                 sys.exit(0)
             except Exception as e:
@@ -65,10 +70,8 @@ class InteractiveShell:
         if not args:
             print(f"📂 Current: {self.root_path}")
             return
-        
-        # 입력받은 경로 처리
+
         input_path = args[0]
-        # '..' 등을 처리하기 위해 resolve() 사용
         try:
             new_path = (self.root_path / input_path).resolve()
         except Exception as e:
@@ -84,12 +87,32 @@ class InteractiveShell:
             print(f"❌ Invalid directory: {new_path}")
 
     def _do_scan(self, args):
+        # [안전 장치 1] .gitignore 체크
+        gitignore_path = self.root_path / ".gitignore"
+        if not gitignore_path.exists():
+            print("⚠️  [Warning] No .gitignore found in root!")
+            print("   Scanning might include unnecessary files (node_modules, venv, etc).")
+            try:
+                confirm = input("   Continue anyway? [y/N] ").lower()
+            except KeyboardInterrupt:
+                print("\n❌ Cancelled.")
+                return
+                
+            if confirm not in ('y', 'yes'):
+                print("❌ Scan cancelled.")
+                return
+
         print("⏳ Scanning...", end="\r")
-        # 인자로 들어온 상대 경로들을 절대 경로로 변환
         target_paths = [ (self.root_path / a).resolve() for a in args ] if args else None
         
+        # [안전 장치 2] actions.scan 내부의 ScanLimitError 처리
         result = self.actions.scan(target_paths)
-        self._handle_result(result, "Context")
+        
+        # 에러 메시지인지 확인 (간단한 체크)
+        if result.startswith("❌ Safety Stop"):
+            print("\n" + result) # 줄바꿈 후 에러 출력
+        else:
+            self._handle_result(result, "Context")
 
     def _do_diff(self):
         if not is_git_repo(self.root_path):
