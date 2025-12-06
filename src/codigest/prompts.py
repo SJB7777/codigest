@@ -1,25 +1,32 @@
-INITIAL_PROMPT_TEMPLATE = """[SYSTEM: CODIGEST - INITIAL CONTEXT]
-You are an expert AI developer. I am providing the full context of a project named "{root_name}".
-Please digest this structure and code to build your internal mental model.
+from .tags import dedent
 
-<project_root>
-{root_name}
-</project_root>
+# Keep as standard strings for JSON serialization and lazy formatting
+DEFAULT_PROMPTS = {
+    "snapshot": dedent("""
+        [SYSTEM: CODIGEST - INITIAL CONTEXT]
+        You are an expert AI developer. I am providing the full context of a project named "{root_name}".
+        Please digest this structure and code to build your internal mental model.
 
-<project_structure>
-{tree_structure}
-</project_structure>
+        <project_root>
+        {root_name}
+        </project_root>
 
-<source_code>
-{content}
-</source_code>
-"""
+        <project_structure>
+        {tree_structure}
+        </project_structure>
 
-UPDATE_PROMPT_TEMPLATE = """[SYSTEM: CODIGEST - INCREMENTAL UPDATE]
-Here are the latest changes (git diff) since our last sync.
-Please update your memory of the codebase accordingly.
+        <source_code>
+        {content}
+        </source_code>
+    """),
+    
+    "diff": dedent("""
+        [SYSTEM: CODIGEST - INCREMENTAL UPDATE]
+        Here are the latest changes (git diff) since our last sync.
+        Please update your memory of the codebase accordingly.
 
-<git_diff>
-{diff_content}
-</git_diff>
-"""
+        <git_diff>
+        {diff_content}
+        </git_diff>
+    """)
+}

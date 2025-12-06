@@ -2,9 +2,11 @@
 Configuration constants for codigest.
 """
 
+# [NEW] Artifact Configuration (이 부분이 누락되었을 가능성이 높음)
 ARTIFACT_DIR_NAME = ".codigest"
 SNAPSHOT_FILENAME = "snapshot.txt"
 DIFF_FILENAME = "changes.diff"
+CONFIG_FILENAME = "config.json"
 
 # File Extension Filters
 TARGET_EXTENSIONS: set[str] = {
@@ -15,7 +17,7 @@ TARGET_EXTENSIONS: set[str] = {
     ".css", ".scss", ".html",
     # Config / Docs
     ".md", ".yaml", ".yml", ".toml", ".xml",
-    ".gitignore", ".dockerignore", "Dockerfile"
+    ".gitignore", ".dockerignore", "Dockerfile", "Makefile"
 }
 
 # Default Ignore Patterns
