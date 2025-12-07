@@ -1,0 +1,87 @@
+# --------------------------------------------------------------------
+# Python Core & Bytecode
+# --------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --------------------------------------------------------------------
+# Virtual Environments (uv / venv)
+# --------------------------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# --------------------------------------------------------------------
+# Distribution / Build Artifacts
+# --------------------------------------------------------------------
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+*.egg
+MANIFEST
+
+# --------------------------------------------------------------------
+# Tooling Caches & Logs
+# --------------------------------------------------------------------
+# Ruff
+.ruff_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# Log files
+*.log
+
+# --------------------------------------------------------------------
+# Environment Variables & Secrets
+# --------------------------------------------------------------------
+.env
+.env.local
+.secrets
+
+# --------------------------------------------------------------------
+# IDE & Editor Settings
+# --------------------------------------------------------------------
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# JetBrains / PyCharm
+.idea/
+
+# macOS
+.DS_Store
+
+# --------------------------------------------------------------------
+# Codigest Project Specifics
+# --------------------------------------------------------------------
+# Artifact directory (stores config, prompts, but often ignored if local-only)
+# You might want to commit .codigest/config.toml and prompts.toml, 
+# but ignore the output snapshots.
+# For now, following your previous pattern:
+.codigest/
+
+# Default output filenames (if generated in root)
+snapshot.xml
+digest.xml
+changes.diff
+tree.txt
+
+# Temporary test outputs
+test_output/
