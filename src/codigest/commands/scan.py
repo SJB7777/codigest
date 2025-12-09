@@ -38,6 +38,7 @@ def handle(
     target: Path = typer.Argument(Path.cwd(), help="Target directory"),
     output: str = typer.Option("snapshot.xml", help="Output filename inside .codigest/"),
     all: bool = typer.Option(False, "--all", "-a", help="Ignore config filters (scan everything)"),
+    message: str = typer.Option("", "--message", "-m", help="Add specific instruction (e.g. 'No old typing')")
 ):
     """
     [Legacy Mode] Scans the codebase using the PromptEngine.
@@ -59,7 +60,8 @@ def handle(
 
     # Initialize Engines
     prompt_engine = prompts.get_engine(root_path)
-    
+    anchor = shadow.ContextAnchor(root_path)
+
     extensions, extra_ignores = (None, [])
     if not all:
         extensions, extra_ignores = _load_config_filters(root_path)
@@ -74,7 +76,16 @@ def handle(
         
         # File Discovery
         files = scanner.scan_project(root_path, extensions, extra_ignores)
-        
+
+        if anchor.has_history():
+            try:
+                diff_content = anchor.get_changes(files)
+                if diff_content.strip():
+                    pre_diff_path = artifact_dir / "previous_changes.diff"
+                    pre_diff_path.write_text(diff_content, encoding="utf-8")
+            except Exception:
+                pass
+
         # Structure Generation (Legacy ASCII Tree)
         tree_str = structure.generate_ascii_tree(files, root_path)
 
@@ -109,11 +120,19 @@ def handle(
                 "snapshot",
                 project_name=root_path.name,
                 tree_structure=tree_str,
-                source_code=source_code_blob
+                source_code=source_code_blob,
+                instruction=message
             )
         except Exception as e:
             console.print(f"[red]❌ Template Rendering Failed:[/red] {e}")
             raise typer.Exit(1)
+
+    # Report Pre-scan Diff
+    if anchor.has_history():
+        pre_diff_path = artifact_dir / "previous_changes.diff"
+        if pre_diff_path.exists() and pre_diff_path.stat().st_size > 0:
+            console.print(f"[dim][i] Changes before this scan saved to: {pre_diff_path.name}[/dim]")
+
     # Update Context Anchor (Shadow Git)
     # This creates the 'Save Point' for future diffs
     try:

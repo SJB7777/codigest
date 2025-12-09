@@ -17,6 +17,7 @@ console = Console()
 def handle(
     copy: bool = typer.Option(True, help="Auto-copy to clipboard"),
     save: bool = typer.Option(True, help="Save to .codigest/changes.diff"),
+    message: str = typer.Option("", "--message", "-m", help="Add specific instruction context"),
 ):
     """
     [Context Update] Shows changes since the last 'codigest scan'.
@@ -65,7 +66,8 @@ def handle(
             "diff",
             project_name=root_path.name,
             context_message=f"Changes since last scan ({last_update})",
-            diff_content=diff_content
+            diff_content=diff_content,
+            instruction=message
         )
     except Exception:
         # Fallback if template fails

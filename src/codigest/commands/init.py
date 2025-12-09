@@ -3,6 +3,8 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 
+from ..core import scanner, shadow
+
 app = typer.Typer()
 console = Console()
 
@@ -36,7 +38,7 @@ def handle(
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing config"),
 ):
     """
-    Initialize the .codigest environment.
+    Initialize the .codigest environment and capture the initial state.
     """
     root_path = Path.cwd()
     config_dir = root_path / ".codigest"
@@ -45,6 +47,7 @@ def handle(
 
     console.print(Panel(f"[bold blue]Initializing Codigest[/bold blue]\n📂 Location: {root_path}", expand=False))
 
+    # 1. Config Setup (기존 로직)
     if not config_dir.exists():
         config_dir.mkdir()
         console.print("  [green]✔[/green] Created [bold].codigest/[/bold] directory")
@@ -56,7 +59,21 @@ def handle(
         console.print("  [yellow]![/yellow] Config exists. Use --force to overwrite.")
 
     _update_gitignore(gitignore_file)
-    console.print("\n[bold green]✨ Ready to digest![/bold green] Try running: [cyan]codigest digest[/cyan]")
+
+    # 2. [NEW] Initial Anchoring (Shadow Git)
+    #    "프로그램 시작 시에도 Anchor 하나 잡고 시작"
+    console.print("\n[dim]Creating initial context anchor...[/dim]")
+    try:
+        # Default scan settings for initialization
+        files = scanner.scan_project(root_path) 
+        anchor = shadow.ContextAnchor(root_path)
+        anchor.update(files)
+        console.print("  [green]✔[/green] Baseline snapshot captured.")
+    except Exception as e:
+        console.print(f"  [red]⚠️ Failed to create initial anchor: {e}[/red]")
+
+    console.print("\n[bold green]✨ Ready to digest![/bold green]") 
+    console.print("Try running: [cyan]codigest diff[/cyan] to see changes from now on.")
 
 def _update_gitignore(path: Path):
     entry = ".codigest/"
