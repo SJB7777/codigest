@@ -4,8 +4,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-# Core modules
-from ..core import scanner, structure, tags, prompts, processor
+from ..core import scanner, structure, tags, prompts, processor, shadow
 
 app = typer.Typer()
 console = Console()
@@ -47,7 +46,7 @@ def handle(
     root_path = target.resolve()
     artifact_dir = root_path / ".codigest"
     
-    # 0. Ensure artifacts directory
+    # Ensure artifacts directory
     if not artifact_dir.exists():
         console.print("[yellow]⚠️  .codigest directory missing. Running init...[/yellow]")
         try:
@@ -58,14 +57,14 @@ def handle(
 
     output_path = artifact_dir / output
 
-    # 1. Initialize Engines
+    # Initialize Engines
     prompt_engine = prompts.get_engine(root_path)
     
     extensions, extra_ignores = (None, [])
     if not all:
         extensions, extra_ignores = _load_config_filters(root_path)
 
-    # 2. Start Process
+    # Start Process
     with Progress(
         SpinnerColumn(),
         TextColumn("[bold blue]Scanning Project...[/bold blue]"),
@@ -73,13 +72,13 @@ def handle(
         console=console
     ) as progress:
         
-        # Step A: File Discovery
+        # File Discovery
         files = scanner.scan_project(root_path, extensions, extra_ignores)
         
-        # Step B: Structure Generation (Legacy ASCII Tree)
+        # Structure Generation (Legacy ASCII Tree)
         tree_str = structure.generate_ascii_tree(files, root_path)
 
-        # Step C: Content Processing & Packing
+        # Content Processing & Packing
         file_blocks = []
         for file_path in files:
             rel_path = file_path.relative_to(root_path).as_posix()
@@ -104,7 +103,7 @@ def handle(
 
         source_code_blob = "\n\n".join(file_blocks)
 
-        # Step D: Final Assembly using Prompt Engine
+        # Final Assembly using Prompt Engine
         try:
             snapshot_content = prompt_engine.render(
                 "snapshot",
@@ -115,8 +114,16 @@ def handle(
         except Exception as e:
             console.print(f"[red]❌ Template Rendering Failed:[/red] {e}")
             raise typer.Exit(1)
+    # Update Context Anchor (Shadow Git)
+    # This creates the 'Save Point' for future diffs
+    try:
+        anchor = shadow.ContextAnchor(root_path)
+        anchor.update(files) # Pass the list of filtered files we just scanned
+    except Exception as e:
+        # Scan should succeed even if shadow update fails, but warn user
+        console.print(f"[yellow]⚠️  Warning: Failed to update context anchor: {e}[/yellow]")
 
-    # 3. Save to Disk
+    # Save to Disk
     try:
         output_path.write_text(snapshot_content, encoding="utf-8")
         

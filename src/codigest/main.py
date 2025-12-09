@@ -4,7 +4,7 @@ Entry Point with Global Error Handling
 import sys
 import typer
 from rich.console import Console
-from .commands import init, scan, tree, digest
+from .commands import init, scan, tree, digest, diff
 
 console = Console()
 
@@ -19,6 +19,7 @@ app.add_typer(init.app, name="init")
 app.add_typer(scan.app, name="scan")
 app.add_typer(tree.app, name="tree")
 app.add_typer(digest.app, name="digest")
+app.add_typer(diff.app, name="diff")
 
 def main():
     try:

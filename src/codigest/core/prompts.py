@@ -31,9 +31,23 @@ Please digest this structure and code to build your internal mental model.
 </source_code>
     """)
 
-# Registry of default implementations
+def _default_diff(project_name: str, context_message: str, diff_content: str) -> str:
+    return tags.dedent(t"""
+        [SYSTEM: CODIGEST - INCREMENTAL UPDATE]
+        Here are the latest changes for the project "{project_name}".
+        {context_message}.
+        
+        Focus on these modifications to update your context.
+
+        <git_diff>
+        {diff_content}
+        </git_diff>
+    """)
+
+# Registry update
 DEFAULT_RENDERERS: dict[str, RenderFunc] = {
-    "snapshot": _default_snapshot
+    "snapshot": _default_snapshot,
+    "diff": _default_diff,
 }
 
 class PromptEngine:
