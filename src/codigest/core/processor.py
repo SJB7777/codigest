@@ -13,7 +13,8 @@ def read_file_content(path: Path, add_line_numbers: bool = True) -> str:
             return content
             
         lines = content.splitlines()
-        if not lines: return ""
+        if not lines:
+            return ""
 
         # 라인 넘버 패딩 계산 (100줄이면 3칸 확보)
         width = len(str(len(lines)))

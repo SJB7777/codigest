@@ -22,22 +22,22 @@ def _default_snapshot(project_name: str, tree_structure: str, source_code: str, 
         """)
 
     return tags.dedent(t"""
-        [SYSTEM: CODIGEST - INITIAL CONTEXT]
-        You are an expert AI developer. I am providing the full context of a project named "{project_name}".
-        Please digest this structure and code to build your internal mental model.
-        {instruction_block}
+[SYSTEM: CODIGEST - INITIAL CONTEXT]
+You are an expert AI developer. I am providing the full context of a project named "{project_name}".
+Please digest this structure and code to build your internal mental model.
+{instruction_block}
 
-        <project_root>
-        {project_name}
-        </project_root>
+<project_root>
+{project_name}
+</project_root>
 
-        <project_structure>
-        {tree_structure}
-        </project_structure>
+<project_structure>
+{tree_structure}
+</project_structure>
 
-        <source_code>
-        {source_code}
-        </source_code>
+<source_code>
+{source_code}
+</source_code>
     """)
 
 def _default_diff(project_name: str, context_message: str, diff_content: str, instruction: str = "") -> str:
@@ -50,16 +50,16 @@ def _default_diff(project_name: str, context_message: str, diff_content: str, in
         """)
 
     return tags.dedent(t"""
-        [SYSTEM: CODIGEST - INCREMENTAL UPDATE]
-        Here are the latest changes for the project "{project_name}".
-        {context_message}.
-        {instruction_block}
+[SYSTEM: CODIGEST - INCREMENTAL UPDATE]
+Here are the latest changes for the project "{project_name}".
+{context_message}.
+{instruction_block}
 
-        Focus on these modifications to update your context.
+Focus on these modifications to update your context.
 
-        <git_diff>
-        {diff_content}
-        </git_diff>
+<git_diff>
+{diff_content}
+</git_diff>
     """)
 
 # Registry update

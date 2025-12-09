@@ -19,7 +19,6 @@ class ProjectScanner:
     def __init__(self, root_path: Path, extensions: Optional[Set[str]] = None, extra_ignores: Optional[List[str]] = None):
         self.root_path = root_path
         self.extensions = extensions
-        # 기본 무시 + 사용자 추가 무시 패턴 결합
         self.extra_ignores = extra_ignores or []
         self.ignore_spec = self._load_gitignore()
 

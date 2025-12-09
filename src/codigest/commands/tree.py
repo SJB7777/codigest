@@ -9,9 +9,7 @@ from rich.filesize import decimal
 
 from ..core.scanner import scan_project
 
-# ▼▼▼ 이 부분이 빠지면 에러가 납니다! ▼▼▼
 app = typer.Typer()
-# ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 console = Console()
 
 def _load_extensions_from_config(root_path: Path) -> Optional[set[str]]:

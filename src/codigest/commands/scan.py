@@ -72,7 +72,7 @@ def handle(
         TextColumn("[bold blue]Scanning Project...[/bold blue]"),
         transient=True,
         console=console
-    ) as progress:
+    ):
         
         # File Discovery
         files = scanner.scan_project(root_path, extensions, extra_ignores)

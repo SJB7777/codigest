@@ -3,10 +3,8 @@ import pyperclip
 from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from loguru import logger
 
 from ..core import scanner, structure, processor, tags
-from ..core.tags import xml
 
 app = typer.Typer()
 console = Console()
