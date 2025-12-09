@@ -1,89 +1,96 @@
-# Codigest: Codebase Context Manager
+# Codigest
 
-Codigest is a CLI tool designed to extract, structure, and track the context of your codebase.
+Codigest is a CLI tool designed to extract, structure, and track the context of your codebase for Large Language Models (LLMs).
 
-While optimized for creating contexts for LLMs, it serves as a powerful utility for developers to grasp project structures, generate snapshots for documentation, and track local changes without polluting the main Git history.
+Unlike simple copy-paste tools, Codigest employs a **Context Anchor** system (Shadow Git) to track changes locally without polluting your main version control history. It also features **Semantic Analysis** to detect structural changes in your code.
 
 ## Core Philosophy
 
-* **Read-Only & Safe**: Codigest never modifies your source code. It only reads, summarizes, and formats.
-* **Human-Readable**: All outputs (XML snapshots, diffs, trees) are designed to be legible by developers first, machines second.
-* **Session-Based Tracking**: It maintains an internal "anchor" separate from your Git commits. This allows you to track "work-in-progress" changes or specific refactoring sessions independently.
-* **Lightweight**: Zero external database, zero daemon. It runs entirely on standard libraries and the file system.
-
-## Key Features
-
-### 1. Project Snapshot (Scan)
-Generates a single, structured XML file containing the project tree and file contents.
-* **Use Case (Dev):** Quickly sharing code context for peer review, onboarding new team members, or creating a backup before a risky change.
-* **Use Case (LLM):** Providing the full codebase context to an AI for initial analysis.
-
-### 2. Incremental Diff (Diff)
-Tracks changes between the last snapshot and the current working tree using an internal anchor.
-* **Use Case (Dev):** Checking "What have I changed since I started this specific task?" without relying on Git staging area or commit history.
-* **Use Case (LLM):** Sending only the modified parts to the AI to save tokens and maintain focus.
-
-### 3. Smart Filtering
-Respects `.gitignore` by default and allows additional exclusion rules via configuration. It automatically handles binary files and reduces noise (e.g., lock files).
+* **Read-Only & Safe**: Codigest never modifies your source code. It only reads, analyzes, and formats context.
+* **Context-Aware**: Instead of dumping raw text, it structures code into XML snapshots designed for LLM comprehension.
+* **Session-Based Tracking**: It maintains an internal anchor to track "work-in-progress" changes independently of your Git commits.
+* **Python 3.14 Native**: Built using modern Python features including PEP 750 Tag Strings for safe XML generation.
 
 ## Installation
 
-Requires **Python 3.14+** (for PEP 750 Tag Strings support).
+Requires **Python 3.14+**.
 
 ```bash
-# Install via uv (Recommended)
+# Install via uv
 git clone https://github.com/SJB7777/codigest.git
 cd codigest
 uv tool install .
 ````
 
-## Usage Workflow
+## Workflow & Commands
 
-### Initialize
+### 1\. Initialization
 
-Sets up the `.codigest` directory and captures the initial baseline.
+Sets up the `.codigest` directory and captures the initial baseline anchor.
 
 ```bash
 codigest init
 ```
 
-### Scan (Capture Context)
+### 2\. Full Context Snapshot (`scan`)
 
-Scans the codebase and saves the snapshot to `.codigest/snapshot.xml`. This updates the internal anchor.
+Scans the entire codebase and generates a structured XML snapshot.
+
+  * **Output:** `.codigest/snapshot.xml`
+  * **Use Case:** Providing the LLM with the full project context at the start of a session.
+  * **Side Effect:** Updates the internal Context Anchor to the current state.
 
 ```bash
-codigest scan --message "Refactoring authentication module"
+codigest scan --m " Python 3.14 project. Do NOT use typing. List/Dict."
 ```
 
-### Diff (Check Changes)
+### 3\. Incremental Changes (`diff`)
 
-Shows what has changed since the last `scan`. This is useful for tracking progress within a specific development session.
+Tracks text-based changes between the last `scan` and the current working tree.
+
+  * **Output:** `.codigest/changes.diff`
+  * **Use Case:** "I modified 3 files. Here is exactly what changed since the last snapshot."
+  * **Note:** This is based on the internal Shadow Git, not your project's Git history.
 
 ```bash
 codigest diff
 ```
 
-### Tree (Visualize)
+### 4\. Semantic Analysis (`semdiff`)
 
-Prints the directory structure to the console, respecting ignore rules.
+Analyzes **structural changes** (AST-based) rather than line-by-line text differences.
+
+  * **Output:** `.codigest/semdiff.xml`
+  * **Use Case:** "I refactored the API. Show me which functions were added, removed, or had their signatures changed."
+  * **Benefit:** Significantly reduces token usage compared to raw diffs by ignoring formatting/comment changes.
 
 ```bash
-codigest tree
+codigest semdiff
+```
+
+### 5\. Architecture Digest (`digest`)
+
+Generates a high-level outline of the project structure (Classes, Functions, Methods only).
+
+  * **Output:** `.codigest/digest.xml`
+  * **Use Case:** "Don't read the implementation details. Just understand the class hierarchy and available methods."
+
+<!-- end list -->
+
+```bash
+codigest digest
 ```
 
 ## Configuration
 
-You can customize the behavior in `.codigest/config.toml`.
+You can customize behavior in `.codigest/config.toml`.
 
 ```toml
-[project]
-description = "My Project Context"
-
 [filter]
-# Only scan these extensions
+# Target extensions
 extensions = [".py", ".ts", ".rs", ".md", ".json"]
 
-# Additional ignore patterns (on top of .gitignore)
+# Exclude patterns (Gitignore syntax)
 exclude_patterns = [
     "*.lock",
     "tests/data/",
@@ -94,12 +101,19 @@ exclude_patterns = [
 format = "xml"
 ```
 
-## Technical Details
+## Architecture Details
 
-Codigest uses a mechanism called **Context Anchoring**.
-When you run `scan`, it creates a lightweight copy of the tracked files in `.codigest/anchor`. When you run `diff`, it compares your current working directory against this anchor.
+**Context Anchor (Shadow Git)**
+Codigest maintains a hidden, lightweight Git repository inside `.codigest/anchor`.
 
-This allows you to verify changes relative to your "logical session" rather than your Git commit history, keeping your main repository clean while allowing granular tracking for debugging or assistance.
+  * When you run `scan`, the current state is committed to this anchor.
+  * When you run `diff`, the tool compares your working directory against this anchor.
+  * When you run `semdiff`, the tool parses the AST of the anchor version and the current version to detect logical drifts.
+
+**Safety Mechanisms**
+
+  * **structure-aware dedent:** Ensures XML tags are perfectly aligned regardless of code indentation.
+  * **Automatic Exclusion:** Self-referential files (`.codigest/`) are automatically ignored to prevent recursion loops.
 
 ## License
 

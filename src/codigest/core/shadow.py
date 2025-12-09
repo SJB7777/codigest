@@ -129,3 +129,43 @@ class ContextAnchor:
             return self._run_git(["log", "-1", "--format=%cr"])
         except:
             return "Unknown"
+
+    def read_anchor_file(self, rel_path: Path) -> str:
+        """
+        Reads the content of a file from the Shadow Git HEAD (Baseline).
+        Used for comparing Old vs New AST.
+        """
+        if not self.git_dir.exists():
+            return ""
+        
+        # Git expects forward slashes
+        git_path = rel_path.as_posix()
+        
+        # git show HEAD:path/to/file
+        result = subprocess.run(
+            ["git", "--git-dir", str(self.git_dir), "--work-tree", str(self.anchor_dir), "show", f"HEAD:{git_path}"],
+            capture_output=True, text=True, encoding='utf-8', errors='replace'
+        )
+        
+        if result.returncode != 0:
+            # File might be new (not in anchor), return empty string
+            return ""
+            
+        return result.stdout
+
+    def get_changed_files(self, current_files: list[Path]) -> list[Path]:
+        """Returns list of paths that have text diffs (Modified/Added/Deleted)."""
+        raw_diff = self.get_changes(current_files)
+        paths = set()
+        for line in raw_diff.splitlines():
+            # diff --git a/src/main.py b/src/main.py
+            if line.startswith("diff --git"):
+                parts = line.split()
+                # Parse paths (rough parsing, robust enough for standard names)
+                # usually parts[-1] is b/path, parts[-2] is a/path
+                if len(parts) >= 4:
+                    # Clean "a/" or "b/"
+                    p = parts[-1]
+                    if p.startswith("b/") or p.startswith("a/"): p = p[2:]
+                    paths.add(self.root / p)
+        return sorted(list(paths))

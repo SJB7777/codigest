@@ -1,7 +1,7 @@
 [project]
 name = "codigest"
-version = "0.2.0"
-description = "Semantic Context Manager for LLMs"
+version = "0.3.0"
+description = "Human-Centered Codebase Context Manager for LLMs"
 authors = [{name = "Codigest Team"}]
 readme = "README.md"
 requires-python = ">=3.14"

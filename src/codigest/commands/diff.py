@@ -4,10 +4,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-# Core modules
 from ..core import scanner, prompts, shadow
-
-# Reuse config loader from scan to ensure consistent filtering
 from .scan import _load_config_filters 
 
 app = typer.Typer()
