@@ -5,7 +5,6 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import List, Set
 from loguru import logger
 
 class ContextAnchor:
@@ -28,7 +27,7 @@ class ContextAnchor:
             logger.debug(f"Shadow Git Warning: {result.stderr}")
         return (result.stdout or "").strip()
 
-    def update(self, source_files: List[Path]):
+    def update(self, source_files: list[Path]):
         if not self.git_dir.exists():
             self.anchor_dir.mkdir(parents=True, exist_ok=True)
             self._run_git(["init"])
@@ -61,7 +60,7 @@ class ContextAnchor:
             self._run_git(["commit", "-m", f"Snapshot: {int(time.time())}"])
             logger.info("Context anchor updated.")
 
-    def get_changes(self, current_files: List[Path]) -> str:
+    def get_changes(self, current_files: list[Path]) -> str:
         if not self.git_dir.exists():
             return ""
 
@@ -69,7 +68,8 @@ class ContextAnchor:
         temp_baseline = self.root / ".codigest" / "temp_diff_baseline"
         
         for d in [temp_current, temp_baseline]:
-            if d.exists(): shutil.rmtree(d)
+            if d.exists():
+                shutil.rmtree(d)
             d.mkdir(parents=True)
 
         try:

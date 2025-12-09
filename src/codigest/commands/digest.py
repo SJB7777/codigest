@@ -36,8 +36,7 @@ def digest(
         
         # 3. Process Content (With Budgeting Logic - MVP simplified)
         file_blocks = []
-        current_tokens = 0
-        
+
         for file_path in files:
             # MVP: Skip binary/large files check logic for brevity
             content = processor.read_with_line_numbers(file_path)

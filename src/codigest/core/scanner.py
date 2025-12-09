@@ -3,7 +3,7 @@ Core File System Scanner.
 """
 import pathspec
 from pathlib import Path
-from typing import List, Set, Optional
+from typing import Optional
 from loguru import logger
 
 # Default "Safe" ignores
@@ -16,7 +16,7 @@ ALWAYS_IGNORE = [
 ]
 
 class ProjectScanner:
-    def __init__(self, root_path: Path, extensions: Optional[Set[str]] = None, extra_ignores: Optional[List[str]] = None):
+    def __init__(self, root_path: Path, extensions: Optional[set[str]] = None, extra_ignores: Optional[list[str]] = None):
         self.root_path = root_path
         self.extensions = extensions
         self.extra_ignores = extra_ignores or []
@@ -56,7 +56,7 @@ class ProjectScanner:
             
         return self.ignore_spec.match_file(rel_path)
 
-    def scan(self) -> List[Path]:
+    def scan(self) -> list[Path]:
         """
         Walks the directory tree and returns valid files.
         (Modernized from old core.py's stack-based approach)
@@ -94,6 +94,6 @@ class ProjectScanner:
                     
         return sorted(valid_files)
 
-def scan_project(root_path: Path, extensions: Set[str] = None, extra_ignores: List[str] = None) -> List[Path]:
+def scan_project(root_path: Path, extensions: set[str] = None, extra_ignores: list[str] = None) -> list[Path]:
     scanner = ProjectScanner(root_path, extensions, extra_ignores)
     return scanner.scan()

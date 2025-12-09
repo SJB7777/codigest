@@ -1,7 +1,7 @@
 import typer
 import tomllib
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 from rich.console import Console
 from rich.tree import Tree
 from rich.text import Text
@@ -25,7 +25,7 @@ def _load_extensions_from_config(root_path: Path) -> Optional[set[str]]:
     except Exception:
         return None
 
-def _build_rich_tree(root_path: Path, files: List[Path]) -> Tree:
+def _build_rich_tree(root_path: Path, files: list[Path]) -> Tree:
     """Converts a flat list of Paths into a visual Rich Tree."""
     tree = Tree(
         f":open_file_folder: [bold blue]{root_path.name}[/bold blue]",
@@ -51,11 +51,16 @@ def _build_rich_tree(root_path: Path, files: List[Path]) -> Tree:
         
         # Icon logic
         icon, style = "📄", "white"
-        if filename.endswith(".py"): icon, style = "🐍", "green"
-        elif filename.endswith((".js", ".ts", ".tsx")): icon, style = "📜", "yellow"
-        elif filename.endswith((".html", ".css")): icon, style = "🌐", "magenta"
-        elif filename.endswith((".json", ".toml", ".yaml")): icon, style = "⚙️", "blue"
-        elif filename.endswith(".md"): icon, style = "📝", "cyan"
+        if filename.endswith(".py"):
+            icon, style = "🐍", "green"
+        elif filename.endswith((".js", ".ts", ".tsx")):
+            icon, style = "📜", "yellow"
+        elif filename.endswith((".html", ".css")):
+            icon, style = "🌐", "magenta"
+        elif filename.endswith((".json", ".toml", ".yaml")):
+            icon, style = "⚙️", "blue"
+        elif filename.endswith(".md"):
+            icon, style = "📝", "cyan"
 
         label = Text(f"{icon} {filename}", style=style)
         label.append(f" ({size_str})", style="dim")

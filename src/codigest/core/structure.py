@@ -1,11 +1,10 @@
 from pathlib import Path
-from typing import List
 
-def generate_toon(paths: List[Path], root_dir: Path) -> str:
+def generate_toon(paths: list[Path], root_dir: Path) -> str:
     """(Phase 2: Digest용) TOON 포맷 생성기 (Placeholder)"""
     return "# TOON generation logic here"
 
-def generate_ascii_tree(paths: List[Path], root_dir: Path) -> str:
+def generate_ascii_tree(paths: list[Path], root_dir: Path) -> str:
     """
     [Legacy Style] Generates a standard ASCII directory tree.
     Ref: Ported from original codigest prototype.
